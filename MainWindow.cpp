@@ -2,10 +2,69 @@
 #include <QMessageBox>
 #include <QFileDialog>
 #include <QDateTime>
-MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), m_cameraController(new CameraController(this)), m_updateTimer(new QTimer(this)), m_frameCount(0), m_currentFPS(0.0)
+#include <QDebug>
+#include <QFileInfo>
+#include <QDir>
+#include <QFile>
+#include <QTextStream>
+MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), m_cameraController(new CameraController(this)), m_updateTimer(new QTimer(this)), m_graphicsScene(nullptr), m_graphicsPixmapItem(nullptr), m_frameCount(0), m_currentFPS(0.0)
 {
+    qDebug() << "########## MainWindow 构造函数第一行 ##########";
+    
+    // 立即设置窗口标题作为测试
+    setWindowTitle("【测试】MainWindow 构造函数被调用");
+    
     ui.setupUi(this);
+    qDebug() << "########## UI 设置完成 ##########";
+    
+    setWindowTitle("【测试】UI 设置完成");
     setupUI();
+    qDebug() << "setupUI 完成";
+    
+    // 初始化 GraphicsView 场景
+    m_graphicsScene = new QGraphicsScene(this);
+    ui.graphicsView->setScene(m_graphicsScene);
+    ui.graphicsView->setRenderHint(QPainter::Antialiasing);
+    ui.graphicsView->setRenderHint(QPainter::SmoothPixmapTransform);
+    ui.graphicsView->setDragMode(QGraphicsView::ScrollHandDrag);
+    ui.graphicsView->setStyleSheet("border: 1px solid gray;");
+    
+    // === 调试信息：准备加载 Nodka-Deepx.png ===
+    qDebug() << "========== 构造函数：准备加载图片 ==========";
+    qDebug() << "应用程序目录:" << QApplication::applicationDirPath();
+    qDebug() << "当前工作目录:" << QDir::currentPath();
+    
+    // 优先使用 Qt 资源系统（内嵌在程序中），然后尝试外部文件
+    QStringList possiblePaths = {
+        ":/Nodka-Deepx.png",  // Qt 资源系统（推荐）
+        "Nodka-Deepx.png",  // 当前目录（应该在 x64/Debug/）
+        QApplication::applicationDirPath() + "/Nodka-Deepx.png",  // 应用程序目录
+        QApplication::applicationDirPath() + "/../../Nodka-Deepx.png"  // 项目根目录
+    };
+    
+    QString foundPath;
+    for (const QString& path : possiblePaths)
+    {
+        bool exists = (path.startsWith(":/")) ? QFile::exists(path) : QFileInfo(path).exists();
+        qDebug() << "检查路径:" << path << "是否存在:" << exists;
+        if (exists)
+        {
+            foundPath = path;
+            qDebug() << "*** 找到图片文件:" << path;
+            break;
+        }
+    }
+    
+    if (foundPath.isEmpty())
+    {
+        qDebug() << "!!! 错误：在所有可能的路径中都找不到 Nodka-Deepx.png";
+        updateStatus("错误：找不到 Nodka-Deepx.png 图片文件");
+    }
+    else
+    {
+        qDebug() << "使用路径:" << foundPath;
+        loadImageToGraphicsView(foundPath);
+    }
     
     // 初始化FPS计时器
     m_fpsTimer.start();
@@ -31,6 +90,13 @@ MainWindow::~MainWindow()
     if (m_cameraController->isConnected())
     {
         m_cameraController->disconnectCamera();
+    }
+    
+    // 清理Graphics Scene
+    if (m_graphicsScene)
+    {
+        m_graphicsScene->clear();
+        delete m_graphicsScene;
     }
 }
 void MainWindow::setupUI()
@@ -88,9 +154,14 @@ void MainWindow::onDisconnectCamera()
     enableConnectionControls(true);
     enableCaptureControls(false);
     ui.disconnectButton->setEnabled(false);
-    ui.stopButton->setEnabled(false); // 清空图像显示
+    ui.stopButton->setEnabled(false);
+    
+    // 清空相机图像显示（imageLabel）
     ui.imageLabel->clear();
     ui.imageLabel->setText("相机图像显示区域");
+    m_currentImage = QPixmap();  // 清空当前图像
+    
+    // 注意：graphicsView 中的静态图片（Nodka-Deepx.png）保持不变
     
     // 重置FPS显示
     setWindowTitle("简单相机控制器 - FPS: 0.0");
@@ -195,9 +266,10 @@ void MainWindow::updateImage()
                 cv::cvtColor(image, rgbImage, cv::COLOR_GRAY2RGB);
             }
             QImage qimg(rgbImage.data, rgbImage.cols, rgbImage.rows, rgbImage.step, QImage::Format_RGB888);
-            m_currentImage = QPixmap::fromImage(qimg); // 缩放图像以适应显示区域
-            QPixmap scaledPixmap = m_currentImage.scaled(ui.imageLabel->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation);
-            ui.imageLabel->setPixmap(scaledPixmap);
+            m_currentImage = QPixmap::fromImage(qimg);
+            
+            // 在 imageLabel 中显示相机实时图像（左侧）
+            ui.imageLabel->setPixmap(m_currentImage);
             
             // 更新FPS
             updateFPS();
@@ -239,4 +311,87 @@ void MainWindow::updateFPS()
         m_frameCount = 0;
         m_fpsTimer.restart();
     }
+}
+
+void MainWindow::loadImageToGraphicsView(const QString& imagePath, int targetWidth, int targetHeight)
+{
+    // === 调试信息：开始加载图片 ===
+    qDebug() << "========== loadImageToGraphicsView 开始 ==========";
+    qDebug() << "传入的图片路径:" << imagePath;
+    qDebug() << "目标宽度:" << targetWidth << "目标高度:" << targetHeight;
+    qDebug() << "应用程序目录:" << QApplication::applicationDirPath();
+    qDebug() << "当前工作目录:" << QDir::currentPath();
+    
+    // 检查文件是否存在
+    QFileInfo fileInfo(imagePath);
+    qDebug() << "文件是否存在:" << fileInfo.exists();
+    qDebug() << "文件绝对路径:" << fileInfo.absoluteFilePath();
+    qDebug() << "文件大小:" << fileInfo.size() << "bytes";
+    qDebug() << "是否为文件:" << fileInfo.isFile();
+    qDebug() << "是否可读:" << fileInfo.isReadable();
+    
+    // 加载图片
+    QPixmap pixmap(imagePath);
+    
+    qDebug() << "QPixmap 是否为空:" << pixmap.isNull();
+    qDebug() << "QPixmap 原始宽度:" << pixmap.width();
+    qDebug() << "QPixmap 原始高度:" << pixmap.height();
+    
+    if (pixmap.isNull())
+    {
+        QString errorMsg = QString("无法加载图片: %1\n文件存在: %2\n绝对路径: %3")
+            .arg(imagePath)
+            .arg(fileInfo.exists() ? "是" : "否")
+            .arg(fileInfo.absoluteFilePath());
+        
+        qDebug() << "!!! 错误:" << errorMsg;
+        updateStatus(errorMsg);
+        QMessageBox::warning(this, "警告", errorMsg);
+        return;
+    }
+    
+    qDebug() << "图片加载成功！原始宽度:" << pixmap.width() << "原始高度:" << pixmap.height();
+    
+    // 如果指定了目标尺寸，进行缩放
+    if (targetWidth > 0 || targetHeight > 0)
+    {
+        int finalWidth = targetWidth > 0 ? targetWidth : pixmap.width();
+        int finalHeight = targetHeight > 0 ? targetHeight : pixmap.height();
+        
+        // 如果只指定了一个维度，按比例计算另一个维度
+        if (targetWidth > 0 && targetHeight <= 0)
+        {
+            finalHeight = static_cast<int>(pixmap.height() * (static_cast<double>(targetWidth) / pixmap.width()));
+        }
+        else if (targetHeight > 0 && targetWidth <= 0)
+        {
+            finalWidth = static_cast<int>(pixmap.width() * (static_cast<double>(targetHeight) / pixmap.height()));
+        }
+        
+        pixmap = pixmap.scaled(finalWidth, finalHeight, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+        qDebug() << "图片已缩放到:" << pixmap.width() << "x" << pixmap.height();
+    }
+    
+    // 清空现有场景
+    m_graphicsScene->clear();
+    m_graphicsPixmapItem = nullptr;
+    
+    // 添加图片到场景
+    m_graphicsPixmapItem = m_graphicsScene->addPixmap(pixmap);
+    qDebug() << "图片已添加到场景，最终尺寸:" << pixmap.width() << "x" << pixmap.height();
+    
+    // 设置场景矩形为图片大小
+    m_graphicsScene->setSceneRect(pixmap.rect());
+    qDebug() << "场景矩形已设置:" << pixmap.rect();
+    
+    // 重置变换，以固定尺寸显示图片（1:1）
+    ui.graphicsView->resetTransform();
+    ui.graphicsView->setTransformationAnchor(QGraphicsView::AnchorUnderMouse);
+    qDebug() << "图片以固定尺寸（1:1）显示";
+    
+    QString sizeInfo = (targetWidth > 0 || targetHeight > 0) 
+        ? QString("已缩放到 %1x%2").arg(pixmap.width()).arg(pixmap.height())
+        : QString("原始尺寸 %1x%2").arg(pixmap.width()).arg(pixmap.height());
+    
+    updateStatus(QString("已加载图片: %1 (%2)").arg(imagePath).arg(sizeInfo));
 }

@@ -54,7 +54,9 @@
       <AdditionalDependencies>Qt6Cored.lib;Qt6Guid.lib;Qt6Widgetsd.lib;Qt6EntryPointd.lib;opencv_world490d.lib;MVSDKmd.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
-      <Command>xcopy /Y /D "..\Sample_OpenCV_VS2015\Bin\opencv_world490d.dll" "$(OutDir)"</Command>
+      <Command>copy /Y "..\Sample_OpenCV_VS2015\Bin\opencv_world490d.dll" "$(OutDir)" 2&gt;nul
+copy /Y "$(ProjectDir)Nodka-Deepx.png" "$(OutDir)" 2&gt;nul
+exit 0</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)' == 'Release|x64'" Label="Configuration">
@@ -77,7 +79,9 @@
       <AdditionalDependencies>Qt6Core.lib;Qt6Gui.lib;Qt6Widgets.lib;Qt6EntryPoint.lib;opencv_world490.lib;MVSDKmd.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
-      <Command>xcopy /Y /D "..\Sample_OpenCV_VS2015\Bin\opencv_world490.dll" "$(OutDir)"</Command>
+      <Command>copy /Y "..\Sample_OpenCV_VS2015\Bin\opencv_world490.dll" "$(OutDir)" 2&gt;nul
+copy /Y "$(ProjectDir)Nodka-Deepx.png" "$(OutDir)" 2&gt;nul
+exit 0</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>

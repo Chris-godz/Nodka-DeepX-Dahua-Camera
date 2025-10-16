@@ -12,6 +12,7 @@
 #include <QtCore/QVariant>
 #include <QtWidgets/QApplication>
 #include <QtWidgets/QComboBox>
+#include <QtWidgets/QGraphicsView>
 #include <QtWidgets/QGroupBox>
 #include <QtWidgets/QHBoxLayout>
 #include <QtWidgets/QLabel>
@@ -33,6 +34,8 @@ public:
     QHBoxLayout *horizontalLayout;
     QLabel *imageLabel;
     QVBoxLayout *controlLayout;
+    QSpacerItem *verticalSpacer;
+    QGraphicsView *graphicsView;
     QGroupBox *deviceGroupBox;
     QVBoxLayout *deviceLayout;
     QPushButton *refreshButton;
@@ -48,7 +51,6 @@ public:
     QGroupBox *statusGroupBox;
     QVBoxLayout *statusLayout;
     QTextEdit *statusTextEdit;
-    QSpacerItem *verticalSpacer;
     QMenuBar *menubar;
     QStatusBar *statusbar;
 
@@ -65,13 +67,24 @@ public:
         imageLabel->setObjectName("imageLabel");
         imageLabel->setMinimumSize(QSize(640, 480));
         imageLabel->setStyleSheet(QString::fromUtf8("border: 1px solid gray;"));
-        imageLabel->setAlignment(Qt::AlignCenter);
         imageLabel->setScaledContents(true);
+        imageLabel->setAlignment(Qt::AlignmentFlag::AlignCenter);
 
         horizontalLayout->addWidget(imageLabel);
 
         controlLayout = new QVBoxLayout();
         controlLayout->setObjectName("controlLayout");
+        verticalSpacer = new QSpacerItem(20, 40, QSizePolicy::Policy::Minimum, QSizePolicy::Policy::Expanding);
+
+        controlLayout->addItem(verticalSpacer);
+
+        graphicsView = new QGraphicsView(centralwidget);
+        graphicsView->setObjectName("graphicsView");
+        graphicsView->setMinimumSize(QSize(400, 150));
+        graphicsView->setMaximumSize(QSize(400, 300));
+
+        controlLayout->addWidget(graphicsView, 0, Qt::AlignmentFlag::AlignHCenter|Qt::AlignmentFlag::AlignVCenter);
+
         deviceGroupBox = new QGroupBox(centralwidget);
         deviceGroupBox->setObjectName("deviceGroupBox");
         deviceLayout = new QVBoxLayout(deviceGroupBox);
@@ -133,19 +146,15 @@ public:
         statusGroupBox->setObjectName("statusGroupBox");
         statusLayout = new QVBoxLayout(statusGroupBox);
         statusLayout->setObjectName("statusLayout");
-        statusTextEdit = new QTextEdit(statusGroupBox);
+
+        controlLayout->addWidget(statusGroupBox);
+
+        statusTextEdit = new QTextEdit(centralwidget);
         statusTextEdit->setObjectName("statusTextEdit");
         statusTextEdit->setMaximumSize(QSize(16777215, 150));
         statusTextEdit->setReadOnly(true);
 
-        statusLayout->addWidget(statusTextEdit);
-
-
-        controlLayout->addWidget(statusGroupBox);
-
-        verticalSpacer = new QSpacerItem(20, 40, QSizePolicy::Policy::Minimum, QSizePolicy::Policy::Expanding);
-
-        controlLayout->addItem(verticalSpacer);
+        controlLayout->addWidget(statusTextEdit);
 
 
         horizontalLayout->addLayout(controlLayout);
@@ -153,7 +162,7 @@ public:
         MainWindow->setCentralWidget(centralwidget);
         menubar = new QMenuBar(MainWindow);
         menubar->setObjectName("menubar");
-        menubar->setGeometry(QRect(0, 0, 1000, 22));
+        menubar->setGeometry(QRect(0, 0, 1000, 21));
         MainWindow->setMenuBar(menubar);
         statusbar = new QStatusBar(MainWindow);
         statusbar->setObjectName("statusbar");

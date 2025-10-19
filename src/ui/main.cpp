@@ -66,7 +66,7 @@ int main(int argc, char *argv[])
     qDebug() << "启动时间:" << QDateTime::currentDateTime().toString("yyyy-MM-dd hh:mm:ss");
     
     // 设置应用程序信息
-    app.setApplicationName("简单相机控制器");
+    app.setApplicationName("大華相机控制器");
     app.setApplicationVersion("1.0");
     app.setOrganizationName("KISS Camera App");           // 设置工作目录为可执行文件所在目录
     

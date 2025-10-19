@@ -111,7 +111,7 @@ MainWindow::~MainWindow()
 }
 void MainWindow::setupUI()
 {
-    setWindowTitle("简单相机控制器 - FPS: 0.0");
+    setWindowTitle("大華相机控制器 - FPS: 0.0");
     
     // 创建 YOLO 控制按钮（假设 UI 中有一个容器或我们添加到状态栏）
     m_loadModelButton = new QPushButton("加载 YOLO 模型", this);
@@ -198,7 +198,7 @@ void MainWindow::onDisconnectCamera()
         m_currentImage = QPixmap();  // 清空当前图像
         
         // 重置FPS显示
-        setWindowTitle("简单相机控制器 - FPS: 0.0");
+        setWindowTitle("大華相机控制器 - FPS: 0.0");
         
         updateStatus("相机已断开连接");
     }
@@ -372,9 +372,9 @@ void MainWindow::onStopCapture()
     {
         ui.startButton->setEnabled(true);
         ui.stopButton->setEnabled(false);
-        
+
         // 停止后重置窗口标题
-        setWindowTitle("简单相机控制器 - FPS: 0.0");
+        setWindowTitle("大華相机控制器 - FPS: 0.0");
         
         if (sourceType == VideoSourceType::Camera)
         {
@@ -520,7 +520,7 @@ void MainWindow::updateFPS()
         m_currentFPS = (m_frameCount * 1000.0) / elapsed;
         
         // 更新窗口标题显示FPS
-        setWindowTitle(QString("简单相机控制器 - FPS: %1").arg(m_currentFPS, 0, 'f', 1));
+        setWindowTitle(QString("大華相机控制器 - FPS: %1").arg(m_currentFPS, 0, 'f', 1));
         
         // 重置计数器
         m_frameCount = 0;

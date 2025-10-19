@@ -12,7 +12,7 @@
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{A1B2C3D4-E5F6-789A-BCDE-F0123456789A}</ProjectGuid>
-    <RootNamespace>CameraQtApp_VS2022</RootNamespace>
+    <RootNamespace>QtCamDetect</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <!-- Qt Path Configuration -->

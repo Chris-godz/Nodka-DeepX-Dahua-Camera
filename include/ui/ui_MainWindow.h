@@ -42,6 +42,7 @@ public:
     QComboBox *deviceComboBox;
     QPushButton *connectButton;
     QPushButton *disconnectButton;
+    QPushButton *switchSourceButton;
     QGroupBox *captureGroupBox;
     QVBoxLayout *captureLayout;
     QPushButton *startButton;
@@ -109,6 +110,11 @@ public:
         disconnectButton->setEnabled(false);
 
         deviceLayout->addWidget(disconnectButton);
+
+        switchSourceButton = new QPushButton(deviceGroupBox);
+        switchSourceButton->setObjectName("switchSourceButton");
+
+        deviceLayout->addWidget(switchSourceButton);
 
 
         controlLayout->addWidget(deviceGroupBox);
@@ -181,6 +187,7 @@ public:
         refreshButton->setText(QCoreApplication::translate("MainWindow", "\345\210\267\346\226\260\350\256\276\345\244\207", nullptr));
         connectButton->setText(QCoreApplication::translate("MainWindow", "\350\277\236\346\216\245\347\233\270\346\234\272", nullptr));
         disconnectButton->setText(QCoreApplication::translate("MainWindow", "\346\226\255\345\274\200\350\277\236\346\216\245", nullptr));
+        switchSourceButton->setText(QCoreApplication::translate("MainWindow", "\345\210\207\346\215\242\350\247\206\351\242\221\346\272\220", nullptr));
         captureGroupBox->setTitle(QCoreApplication::translate("MainWindow", "\345\233\276\345\203\217\351\207\207\351\233\206", nullptr));
         startButton->setText(QCoreApplication::translate("MainWindow", "\345\274\200\345\247\213\351\207\207\351\233\206", nullptr));
         stopButton->setText(QCoreApplication::translate("MainWindow", "\345\201\234\346\255\242\351\207\207\351\233\206", nullptr));

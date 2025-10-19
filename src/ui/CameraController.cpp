@@ -1,5 +1,8 @@
 ﻿#include "CameraController.h"
 #include <QDebug>
+#include <QThread>
+#include <QMetaObject>
+#include <QAtomicInt>
 #include <chrono>
 
 CameraController::CameraController(QObject *parent) 
@@ -8,10 +11,35 @@ CameraController::CameraController(QObject *parent)
     , m_isConnected(false)
     , m_isCapturing(false)
     , m_hasNewImage(false)
+    , m_videoSourceManager(nullptr)
     , m_yoloDetector(nullptr)
     , m_yoloEnabled(false)
+    , m_pendingDetectionSignals(0)  // 初始化信号计数器
 {
     m_yoloDetector = new YoloDetector(this);
+    m_videoSourceManager = new VideoSourceManager(this);
+    
+    connect(m_videoSourceManager, &VideoSourceManager::statusChanged,
+            this, &CameraController::statusChanged);
+    
+    // ========== 轮询方案：不再使用跨线程信号 ==========
+    // 注释掉原来的信号连接，改为定时器轮询模式
+    // connect(m_yoloDetector, &YoloDetector::detectionComplete, ...)
+    // 
+    // 现在的工作模式：
+    // 1. DXRT 回调线程中，YoloDetector 更新 m_latestResults（带mutex保护）
+    // 2. MainWindow 的 updateImage() 定时器中，直接调用 getLatestDetections()
+    // 3. 完全不经过 Qt 的信号/事件系统
+    qDebug() << "[CAMERA] ========== 采用轮询模式，不使用跨线程信号 ==========";
+    
+    // 只保留错误信号（这个频率很低）
+    connect(m_yoloDetector, &YoloDetector::errorOccurred,
+            this, [this](const QString& error) {
+                qCritical() << "[CAMERA] YOLO 错误:" << error;
+                logStatus(error);
+            }, Qt::QueuedConnection);
+    
+    qDebug() << "[CAMERA] CameraController 已创建，异步检测信号已连接（QueuedConnection）";
 }
 
 CameraController::~CameraController()
@@ -192,11 +220,51 @@ bool CameraController::snapImage()
 
 bool CameraController::grabFrame()
 {
+    static int grabCounter = 0;
+    grabCounter++;
+    
     if (!m_isConnected || !m_isCapturing)
     {
+        if (grabCounter == 1 || grabCounter % 30 == 0) {
+            qDebug() << "[CameraController::grabFrame] 跳过: m_isConnected =" << m_isConnected 
+                     << ", m_isCapturing =" << m_isCapturing;
+        }
         return false;
     }
     
+    // 使用视频源管理器
+    if (m_videoSourceManager && m_videoSourceManager->isOpened())
+    {
+        if (grabCounter == 1 || grabCounter % 30 == 0) {
+            qDebug() << "[CameraController::grabFrame] 使用视频源管理器抓取帧，计数:" << grabCounter;
+        }
+        
+        cv::Mat frame;
+        if (m_videoSourceManager->grabFrame(frame))
+        {
+            if (grabCounter == 1 || grabCounter % 30 == 0) {
+                qDebug() << "[CameraController::grabFrame] 成功抓取帧，尺寸:" << frame.cols << "x" << frame.rows;
+            }
+            
+            m_currentImage = frame.clone();
+            m_hasNewImage = true;
+            
+            if (m_yoloEnabled && m_yoloDetector && m_yoloDetector->isInitialized())
+            {
+                processImageWithYolo(m_currentImage);
+            }
+            
+            emit imageUpdated();
+            return true;
+        }
+        
+        if (grabCounter == 1 || grabCounter % 30 == 0) {
+            qDebug() << "[CameraController::grabFrame] 视频源抓取帧失败";
+        }
+        return false;
+    }
+    
+    // 使用相机
     IMV_Frame frame;
     int ret = IMV_GetFrame(m_deviceHandle, &frame, 100); // 100ms超时
     
@@ -378,26 +446,33 @@ void CameraController::processImageWithYolo(cv::Mat& image)
     }
     
     processedFrames++;
-    qDebug() << "[CAMERA] ========== 处理第" << processedFrames << "帧 (总帧数:" << totalFrames << ") ==========";
-    qDebug() << "[CAMERA] 图像尺寸:" << image.cols << "x" << image.rows;
+    
+    // 只在第一帧和每30帧打印详细日志，减少输出
+    bool verboseLog = (processedFrames == 1 || processedFrames % 30 == 0);
+    
+    if (verboseLog) {
+        qDebug() << "[CAMERA] ========== 处理第" << processedFrames << "帧 (总帧数:" << totalFrames << ") ==========";
+        qDebug() << "[CAMERA] 图像尺寸:" << image.cols << "x" << image.rows;
+    }
     
     try {
-        // 执行同步检测
-        qDebug() << "[CAMERA] 调用 YOLO 检测...";
-        auto startTime = std::chrono::high_resolution_clock::now();
+        // 使用异步检测（不阻塞）
+        if (verboseLog) {
+            qDebug() << "[CAMERA] 提交异步 YOLO 检测...";
+        }
         
-        m_latestDetections = m_yoloDetector->detectSync(image);
+        bool success = m_yoloDetector->detectAsync(image);
         
-        auto endTime = std::chrono::high_resolution_clock::now();
-        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime).count();
+        if (verboseLog) {
+            if (success) {
+                qDebug() << "[CAMERA] 异步检测已提交 ✓";
+            } else {
+                qWarning() << "[CAMERA] 异步检测提交失败";
+            }
+        }
         
-        qDebug() << "[CAMERA] YOLO 检测完成, 耗时:" << duration << "ms";
-        qDebug() << "[CAMERA] 检测结果数量:" << m_latestDetections.size();
-        
-        // 发送检测结果信号
-        emit detectionsUpdated(m_latestDetections);
-        
-        qDebug() << "[CAMERA] 第" << processedFrames << "帧处理完成 ✓";
+        // 注意：结果会通过 YoloDetector::detectionComplete 信号异步返回
+        // 不需要在这里等待结果
     }
     catch (const std::exception& e) {
         QString errorMsg = QString("YOLO 检测失败: %1").arg(e.what());
@@ -411,3 +486,25 @@ void CameraController::logStatus(const QString &message)
     qDebug() << message;
     emit statusChanged(message);
 }
+
+bool CameraController::openVideoFile(const QString& filePath)
+{
+    if (m_isCapturing) { stopCapture(); }
+    if (m_isConnected) { disconnectCamera(); }
+    bool success = m_videoSourceManager->openVideoFile(filePath);
+    if (success) 
+    { 
+        m_isConnected = true; 
+        m_isCapturing = true;  // 视频文件打开后即处于"采集"状态
+        logStatus(QString("视频文件已打开: %1").arg(filePath)); 
+    }
+    return success;
+}
+
+VideoSourceType CameraController::getCurrentSourceType() const
+{
+    return m_videoSourceManager->getCurrentType();
+}
+
+ 
+ 

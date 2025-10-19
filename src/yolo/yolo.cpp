@@ -273,7 +273,19 @@ std::vector<BoundingBox> Yolo::PostProc(void* data, std::vector<std::vector<int6
         // 調用 FilterWithSort 處理原始 buffer
         FilterWithSort(data, output_shape, data_type);
         
-        qDebug() << "[YOLO POSTPROC BUFFER] FilterWithSort 完成，開始 NMS...";
+        qDebug() << "[YOLO POSTPROC BUFFER] FilterWithSort 完成，開始統計和 NMS...";
+        
+        // 統計候選框（NMS 前）
+        int totalCandidates = 0;
+        for(size_t label=0 ; label<static_cast<size_t>(cfg.numClasses) ; label++)
+        {
+            if (ScoreIndices[label].size() > 0) {
+                qDebug() << "[YOLO POSTPROC BUFFER]   類別" << label << "(" << cfg.classNames[label].c_str() << "):" 
+                         << ScoreIndices[label].size() << "個候選";
+                totalCandidates += ScoreIndices[label].size();
+            }
+        }
+        qDebug() << "[YOLO POSTPROC BUFFER] ✅ NMS 前總候選框數:" << totalCandidates;
         
         // 排序
         for(int cls=0; cls<(int)cfg.numClasses; cls++)
@@ -291,7 +303,7 @@ std::vector<BoundingBox> Yolo::PostProc(void* data, std::vector<std::vector<int6
             0
         );
         
-        qDebug() << "[YOLO POSTPROC BUFFER] NMS 完成，檢測到" << result.size() << "個目標";
+        qDebug() << "[YOLO POSTPROC BUFFER] ✅ NMS 後最終檢測結果:" << result.size() << "個目標";
     }
     else
     {
@@ -730,6 +742,16 @@ void Yolo::FilterWithSort(void* outputs, std::vector<std::vector<int64_t>> outpu
     float *data;
     float* output_per_layers = (float*)outputs;
     
+    // 统计信息
+    int totalBoxes = 0;
+    int passObjectness = 0;
+    int passConf = 0;
+    int passScore = 0;
+    
+    qDebug() << "[YOLO FILTER] 使用阈值: confThreshold=" << conf_threshold 
+             << ", scoreThreshold=" << ScoreThreshold 
+             << ", rawThreshold=" << rawThreshold;
+    
     if(anchorSize > 0)  // anchor-based YOLO (YOLOv5, YOLOv7 etc.)
     {
         qDebug() << "[YOLO FILTER BUFFER] 使用 anchor-based 處理";
@@ -768,6 +790,7 @@ void Yolo::FilterWithSort(void* outputs, std::vector<std::vector<int64_t>> outpu
                 {
                     for(int box=0; box<layer.numBoxes; box++)
                     { 
+                        totalBoxes++;
                         bool boxDecoded = false;
                         
                         // 手動計算偏移（與之前修復的 raw_post_processing 一致）
@@ -778,16 +801,19 @@ void Yolo::FilterWithSort(void* outputs, std::vector<std::vector<int64_t>> outpu
                         // 快速檢查 objectness
                         if(data[4] > rawThreshold)
                         {
+                            passObjectness++;
                             score1 = sigmoid(data[4]);
                             
                             if(score1 > conf_threshold)
                             {
+                                passConf++;
                                 for(int cls=0; cls<(int)cfg.numClasses; cls++)
                                 {
                                     score = score1 * sigmoid(data[5+cls]);
                                     
                                     if (score > ScoreThreshold)
                                     {
+                                        passScore++;
                                         ScoreIndices[cls].emplace_back(score, boxIdx);
                                         
                                         if(!boxDecoded)
@@ -821,6 +847,13 @@ void Yolo::FilterWithSort(void* outputs, std::vector<std::vector<int64_t>> outpu
             
             qDebug() << "[YOLO FILTER BUFFER] 層" << i << "處理完成，當前總 box 數:" << boxIdx;
         }
+        
+        qDebug() << "[YOLO FILTER] ========== 過濾統計 ==========";
+        qDebug() << "[YOLO FILTER] 總 anchor boxes:" << totalBoxes;
+        qDebug() << "[YOLO FILTER] 通過 objectness (raw>" << rawThreshold << "):" << passObjectness;
+        qDebug() << "[YOLO FILTER] 通過 confThreshold (>" << conf_threshold << "):" << passConf;
+        qDebug() << "[YOLO FILTER] 通過 scoreThreshold (>" << ScoreThreshold << "):" << passScore;
+        qDebug() << "[YOLO FILTER] 最終候選框數:" << passScore << "個";
     }
     
     qDebug() << "[YOLO FILTER BUFFER] FilterWithSort 完成，總處理 box:" << boxIdx;

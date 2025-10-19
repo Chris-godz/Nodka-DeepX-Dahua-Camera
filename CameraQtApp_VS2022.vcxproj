@@ -100,6 +100,7 @@ exit 0</Command>
     <ClCompile Include="src\ui\MainWindow_YoloExtensions.cpp" />
     <ClCompile Include="src\ui\CameraController.cpp" />
     <ClCompile Include="src\ui\YoloDetector.cpp" />
+    <ClCompile Include="src\ui\VideoSource.cpp" />
     <ClCompile Include="src\yolo\bbox.cpp" />
     <ClCompile Include="src\yolo\display.cpp" />
     <ClCompile Include="src\yolo\image.cpp" />
@@ -109,10 +110,12 @@ exit 0</Command>
     <ClCompile Include="$(IntDir)moc_MainWindow.cpp" />
     <ClCompile Include="$(IntDir)moc_CameraController.cpp" />
     <ClCompile Include="$(IntDir)moc_YoloDetector.cpp" />
+    <ClCompile Include="$(IntDir)moc_VideoSource.cpp" />
     <ClCompile Include="$(IntDir)qrc_main.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="$(IntDir)ui_MainWindow.h" />
+    <ClInclude Include="include\ui\VideoSource.h" />
     <ClInclude Include="include\yolo\bbox.h" />
     <ClInclude Include="include\yolo\display.h" />
     <ClInclude Include="include\yolo\image.h" />
@@ -137,6 +140,14 @@ exit 0</Command>
       <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(QtPath)\bin\moc.exe;%(FullPath)</AdditionalInputs>
     </CustomBuild>
     <CustomBuild Include="include\ui\YoloDetector.h">
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(QtPath)\bin\moc.exe %(FullPath) -o $(IntDir)moc_%(Filename).cpp</Command>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(QtPath)\bin\moc.exe %(FullPath) -o $(IntDir)moc_%(Filename).cpp</Command>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(IntDir)moc_%(Filename).cpp</Outputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(IntDir)moc_%(Filename).cpp</Outputs>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(QtPath)\bin\moc.exe;%(FullPath)</AdditionalInputs>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(QtPath)\bin\moc.exe;%(FullPath)</AdditionalInputs>
+    </CustomBuild>
+    <CustomBuild Include="include\ui\VideoSource.h">
       <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(QtPath)\bin\moc.exe %(FullPath) -o $(IntDir)moc_%(Filename).cpp</Command>
       <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(QtPath)\bin\moc.exe %(FullPath) -o $(IntDir)moc_%(Filename).cpp</Command>
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(IntDir)moc_%(Filename).cpp</Outputs>

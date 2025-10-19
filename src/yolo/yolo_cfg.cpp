@@ -23,8 +23,8 @@ YoloLayerParam createYoloLayerParam(std::string _name, int _gx, int _gy, int _nu
 YoloParam yolov3_512 = {
     512,  // height
     512,  // width
-    0.25, // confThreshold
-    0.3,  // scoreThreshold
+    0.15, // confThreshold (降低以检测更多目标)
+    0.20, // scoreThreshold (降低以检测更多目标)
     0.4,  // iouThreshold
     0,   // numBoxes
     80,   // numClasses
@@ -44,8 +44,8 @@ YoloParam yolov3_512 = {
 YoloParam yolov4_416 = {
     416,  // height
     416,  // width
-    0.25, // confThreshold
-    0.3,  // scoreThreshold
+    0.15, // confThreshold (降低以检测更多目标)
+    0.20, // scoreThreshold (降低以检测更多目标)
     0.4,  // iouThreshold
     0,   // numBoxes
     80,   // numClasses
@@ -65,8 +65,8 @@ YoloParam yolov4_416 = {
 YoloParam yolov5s_320 = {
     320,  // height
     320,  // width
-    0.25, // confThreshold
-    0.3,  // scoreThreshold
+    0.15, // confThreshold (降低以检测更多目标)
+    0.20, // scoreThreshold (降低以检测更多目标)
     0.4,  // iouThreshold
     0,   // numBoxes
     80,   // numClasses
@@ -86,8 +86,8 @@ YoloParam yolov5s_320 = {
 YoloParam yolov5s_512 = {
     512,
     512,
-    0.25,
-    0.3,
+    0.15, // confThreshold (降低以检测更多目标)
+    0.20, // scoreThreshold (降低以检测更多目标)
     0.4,
     0,
     80,
@@ -105,8 +105,8 @@ YoloParam yolov5s_512 = {
 YoloParam yolov5s_640 = {
     640,
     640,
-    0.25,
-    0.3,
+    0.15, // confThreshold (降低以检测更多目标)
+    0.20, // scoreThreshold (降低以检测更多目标)
     0.4,
     0,
     80,
@@ -124,8 +124,8 @@ YoloParam yolov5s_640 = {
 YoloParam yolox_s_512 = {
     512,
     512,
-    0.25,
-    0.3,
+    0.15, // confThreshold (降低以检测更多目标)
+    0.20, // scoreThreshold (降低以检测更多目标)
     0.4,
     0,
     80,
@@ -140,8 +140,8 @@ YoloParam yolox_s_512 = {
 YoloParam yolov7_640 = {
     640,
     640,
-    0.25,
-    0.3,
+    0.15, // confThreshold (降低以检测更多目标)
+    0.20, // scoreThreshold (降低以检测更多目标)
     0.4,
     -1,  // numBoxes = -1 表示自动计算 (与 dx_app 一致)
     80,
@@ -178,8 +178,8 @@ YoloParam yolov7_512 = {
 YoloParam yolov8_640 = {
     640,
     640,
-    0.3,
-    0.3,
+    0.20, // confThreshold (降低以检测更多目标)
+    0.20, // scoreThreshold (降低以检测更多目标)
     0.4,
     8400,
     80,
@@ -196,8 +196,8 @@ YoloParam yolov8_640 = {
 YoloParam yolov9_640 = {
     640,
     640,
-    0.3,
-    0.3,
+    0.20, // confThreshold (降低以检测更多目标)
+    0.20, // scoreThreshold (降低以检测更多目标)
     0.4,
     8400,
     80,
@@ -228,8 +228,8 @@ YoloParam yolov5s6_pose_640 = {
 YoloParam yolov5s_face_640 = {
     640,
     640,
-    0.25,
-    0.3,
+    0.15, // confThreshold (降低以检测更多目标)
+    0.20, // scoreThreshold (降低以检测更多目标)
     0.4,
     0,
     1,

@@ -101,6 +101,13 @@
            </property>
           </widget>
          </item>
+         <item>
+          <widget class="QPushButton" name="switchSourceButton">
+           <property name="text">
+            <string>切换视频源</string>
+           </property>
+          </widget>
+         </item>
         </layout>
        </widget>
       </item>

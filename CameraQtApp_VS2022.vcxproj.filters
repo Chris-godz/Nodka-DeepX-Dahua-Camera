@@ -17,40 +17,115 @@
       <UniqueIdentifier>{99349809-55BA-4b9d-BF79-8FDBB0286EB3}</UniqueIdentifier>
       <Extensions>ui</Extensions>
     </Filter>
+    <Filter Include="Source Files\ui">
+      <UniqueIdentifier>{5B6E7F2A-8C3D-4E1F-9A2B-3C4D5E6F7A8B}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\yolo">
+      <UniqueIdentifier>{6C7F8A3B-9D4E-5F2A-AB3C-4D5E6F7A8B9C}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\ui">
+      <UniqueIdentifier>{7D8A9B4C-AE5F-6A3B-BC4D-5E6F7A8B9CAD}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\yolo">
+      <UniqueIdentifier>{8E9BAC5D-BF6A-7B4C-CD5E-6F7A8B9CADBE}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\utils">
+      <UniqueIdentifier>{9FACBD6E-CA7B-8C5D-DE6F-7A8B9CADBECF}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="main.cpp">
+    <ClCompile Include="src\ui\main.cpp">
+      <Filter>Source Files\ui</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ui\MainWindow.cpp">
+      <Filter>Source Files\ui</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ui\MainWindow_YoloExtensions.cpp">
+      <Filter>Source Files\ui</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ui\CameraController.cpp">
+      <Filter>Source Files\ui</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ui\YoloDetector.cpp">
+      <Filter>Source Files\ui</Filter>
+    </ClCompile>
+    <ClCompile Include="src\ui\VideoSource.cpp">
+      <Filter>Source Files\ui</Filter>
+    </ClCompile>
+    <ClCompile Include="src\yolo\bbox.cpp">
+      <Filter>Source Files\yolo</Filter>
+    </ClCompile>
+    <ClCompile Include="src\yolo\display.cpp">
+      <Filter>Source Files\yolo</Filter>
+    </ClCompile>
+    <ClCompile Include="src\yolo\image.cpp">
+      <Filter>Source Files\yolo</Filter>
+    </ClCompile>
+    <ClCompile Include="src\yolo\nms.cpp">
+      <Filter>Source Files\yolo</Filter>
+    </ClCompile>
+    <ClCompile Include="src\yolo\yolo.cpp">
+      <Filter>Source Files\yolo</Filter>
+    </ClCompile>
+    <ClCompile Include="src\yolo\yolo_cfg.cpp">
+      <Filter>Source Files\yolo</Filter>
+    </ClCompile>
+    <ClCompile Include="$(IntDir)moc_MainWindow.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="MainWindow.cpp">
+    <ClCompile Include="$(IntDir)moc_CameraController.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="CameraController.cpp">
+    <ClCompile Include="$(IntDir)moc_YoloDetector.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="moc_MainWindow.cpp">
+    <ClCompile Include="$(IntDir)moc_VideoSource.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="qrc_main.cpp">
+    <ClCompile Include="$(IntDir)qrc_main.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="CameraController.h">
+    <ClInclude Include="include\ui\CameraController.h">
+      <Filter>Header Files\ui</Filter>
+    </ClInclude>
+    <ClInclude Include="include\ui\MainWindow.h">
+      <Filter>Header Files\ui</Filter>
+    </ClInclude>
+    <ClInclude Include="include\ui\YoloDetector.h">
+      <Filter>Header Files\ui</Filter>
+    </ClInclude>
+    <ClInclude Include="include\ui\VideoSource.h">
+      <Filter>Header Files\ui</Filter>
+    </ClInclude>
+    <ClInclude Include="$(IntDir)ui_MainWindow.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="ui_MainWindow.h">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="include\yolo\bbox.h">
+      <Filter>Header Files\yolo</Filter>
+    </ClInclude>
+    <ClInclude Include="include\yolo\display.h">
+      <Filter>Header Files\yolo</Filter>
+    </ClInclude>
+    <ClInclude Include="include\yolo\image.h">
+      <Filter>Header Files\yolo</Filter>
+    </ClInclude>
+    <ClInclude Include="include\yolo\nms.h">
+      <Filter>Header Files\yolo</Filter>
+    </ClInclude>
+    <ClInclude Include="include\yolo\yolo.h">
+      <Filter>Header Files\yolo</Filter>
+    </ClInclude>
+    <ClInclude Include="include\utils\color_table.hpp">
+      <Filter>Header Files\utils</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <CustomBuild Include="MainWindow.h">
-      <Filter>Header Files</Filter>
-    </CustomBuild>
-    <CustomBuild Include="MainWindow.ui">
+    <CustomBuild Include="resources\ui\MainWindow.ui">
       <Filter>Form Files</Filter>
     </CustomBuild>
-    <CustomBuild Include="main.qrc">
+    <CustomBuild Include="resources\main.qrc">
       <Filter>Resource Files</Filter>
     </CustomBuild>
   </ItemGroup>

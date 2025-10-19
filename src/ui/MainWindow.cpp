@@ -1,4 +1,5 @@
 ﻿#include "MainWindow.h"
+#include "VideoSource.h"
 #include <QMessageBox>
 #include <QFileDialog>
 #include <QInputDialog>
@@ -74,20 +75,25 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), m_cameraControlle
     connect(ui.refreshButton, &QPushButton::clicked, this, &MainWindow::onRefreshDevices);
     connect(ui.connectButton, &QPushButton::clicked, this, &MainWindow::onConnectCamera);
     connect(ui.disconnectButton, &QPushButton::clicked, this, &MainWindow::onDisconnectCamera);
+    connect(ui.switchSourceButton, &QPushButton::clicked, this, &MainWindow::onSwitchVideoSource);
     connect(ui.startButton, &QPushButton::clicked, this, &MainWindow::onStartCapture);
     connect(ui.stopButton, &QPushButton::clicked, this, &MainWindow::onStopCapture);
     connect(ui.snapButton, &QPushButton::clicked, this, &MainWindow::onSnapImage);
     connect(ui.saveButton, &QPushButton::clicked, this, &MainWindow::onSaveImage);
     // 连接相机控制器信号
     connect(m_cameraController, &CameraController::statusChanged, this, &MainWindow::updateStatus);
-    connect(m_cameraController, &CameraController::detectionsUpdated, this, &MainWindow::onDetectionsUpdated);
+    
+    // ========== 轮询模式：不再连接 detectionsUpdated 信号 ==========
+    // connect(m_cameraController, &CameraController::detectionsUpdated, this, &MainWindow::onDetectionsUpdated);
+    // 现在在 updateImage() 定时器中主动轮询检测结果
     
     // 设置更新定时器
     connect(m_updateTimer, &QTimer::timeout, this, &MainWindow::updateImage);
     m_updateTimer->setInterval(50); // 20 FPS
     // 初始刷新设备列表
     onRefreshDevices();
-    updateStatus("程序启动完成");
+    
+    updateStatus("程序启动完成，请点击'切换视频源'选择相机或视频文件");
 }
 MainWindow::~MainWindow()
 {
@@ -172,28 +178,144 @@ void MainWindow::onDisconnectCamera()
     {
         m_updateTimer->stop();
     }
+    
+    // 检查当前视频源类型
+    VideoSourceType sourceType = m_cameraController->getCurrentSourceType();
+    
     m_cameraController->disconnectCamera();
-    enableConnectionControls(true);
-    enableCaptureControls(false);
-    ui.disconnectButton->setEnabled(false);
-    ui.stopButton->setEnabled(false);
     
-    // 清空相机图像显示（imageLabel）
-    ui.imageLabel->clear();
-    ui.imageLabel->setText("相机图像显示区域");
-    m_currentImage = QPixmap();  // 清空当前图像
-    
-    // 注意：graphicsView 中的静态图片（Nodka-Deepx.png）保持不变
-    
-    // 重置FPS显示
-    setWindowTitle("简单相机控制器 - FPS: 0.0");
-    
-    updateStatus("相机已断开连接");
+    if (sourceType == VideoSourceType::Camera)
+    {
+        // 相机模式：完全断开，禁用采集控制
+        enableConnectionControls(true);
+        enableCaptureControls(false);
+        ui.disconnectButton->setEnabled(false);
+        ui.stopButton->setEnabled(false);
+        
+        // 清空相机图像显示（imageLabel）
+        ui.imageLabel->clear();
+        ui.imageLabel->setText("相机图像显示区域");
+        m_currentImage = QPixmap();  // 清空当前图像
+        
+        // 重置FPS显示
+        setWindowTitle("简单相机控制器 - FPS: 0.0");
+        
+        updateStatus("相机已断开连接");
+    }
+    else
+    {
+        // 视频文件模式：保持采集控制启用，允许重新播放
+        enableConnectionControls(false);
+        enableCaptureControls(true);
+        ui.disconnectButton->setEnabled(true);
+        ui.startButton->setEnabled(true);
+        ui.stopButton->setEnabled(false);
+        
+        updateStatus("视频已停止，可以点击'开始采集'重新播放");
+    }
 }
+
+void MainWindow::onSwitchVideoSource()
+{
+    // 停止当前采集
+    if (m_updateTimer->isActive())
+    {
+        m_updateTimer->stop();
+    }
+    if (m_cameraController->isConnected())
+    {
+        m_cameraController->disconnectCamera();
+    }
+    
+    // 弹出对话框让用户选择
+    QStringList items;
+    items << "工业相机" << "视频文件 (MP4)";
+    bool ok;
+    QString item = QInputDialog::getItem(this, "切换视频源", "选择视频源类型:", items, 0, false, &ok);
+    
+    if (!ok || item.isEmpty())
+    {
+        updateStatus("取消切换");
+        return;
+    }
+    
+    if (item == "工业相机")
+    {
+        // 切换到相机模式
+        enableConnectionControls(true);
+        enableCaptureControls(false);
+        ui.disconnectButton->setEnabled(false);
+        onRefreshDevices();
+        updateStatus("已切换到相机模式，请选择相机并连接");
+    }
+    else if (item == "视频文件 (MP4)")
+    {
+        // 选择视频文件
+        QString videoPath = QFileDialog::getOpenFileName(
+            this,
+            "选择视频文件",
+            "C:/Users/Administrator/Desktop/CameraQtApp_VS2022/assets/video",
+            "视频文件 (*.mp4 *.avi *.mkv *.mov);;所有文件 (*.*)"
+        );
+        
+        if (!videoPath.isEmpty())
+        {
+            qDebug() << "[MainWindow] 准备打开视频文件:" << videoPath;
+            if (m_cameraController->openVideoFile(videoPath))
+            {
+                qDebug() << "[MainWindow] 视频文件打开成功";
+                updateStatus(QString("视频文件已打开: %1").arg(videoPath));
+                enableConnectionControls(false);
+                enableCaptureControls(true);
+                ui.disconnectButton->setEnabled(true);
+                
+                qDebug() << "[MainWindow] 准备调用 onStartCapture() 自动播放...";
+                // 自动开始播放
+                onStartCapture();
+                qDebug() << "[MainWindow] onStartCapture() 调用完成";
+            }
+            else
+            {
+                qDebug() << "[MainWindow] 打开视频文件失败！";
+                QMessageBox::critical(this, "错误", "打开视频文件失败");
+                updateStatus("打开视频文件失败");
+            }
+        }
+        else
+        {
+            qDebug() << "[MainWindow] 用户取消选择视频文件";
+        }
+    }
+}
+
 void MainWindow::onStartCapture()
 {
-    if (m_cameraController->startCapture())
+    qDebug() << "[MainWindow::onStartCapture] ========== 函数开始 ==========";
+    
+    // 检查当前视频源类型
+    VideoSourceType sourceType = m_cameraController->getCurrentSourceType();
+    qDebug() << "[MainWindow::onStartCapture] 当前视频源类型:" << (sourceType == VideoSourceType::Camera ? "相机" : "视频文件");
+    
+    bool success = false;
+    if (sourceType == VideoSourceType::Camera)
     {
+        qDebug() << "[MainWindow::onStartCapture] 相机模式：调用 startCapture()";
+        // 相机模式：调用相机API启动采集
+        success = m_cameraController->startCapture();
+        qDebug() << "[MainWindow::onStartCapture] 相机 startCapture() 返回:" << success;
+    }
+    else if (sourceType == VideoSourceType::VideoFile)
+    {
+        qDebug() << "[MainWindow::onStartCapture] 视频文件模式：无需调用 startCapture()";
+        // 视频文件模式：直接启动定时器播放
+        success = true;  // 视频文件已经打开，无需调用startCapture
+    }
+    
+    qDebug() << "[MainWindow::onStartCapture] success =" << success;
+    
+    if (success)
+    {
+        qDebug() << "[MainWindow::onStartCapture] 成功，准备启动定时器";
         ui.startButton->setEnabled(false);
         ui.stopButton->setEnabled(true);
         
@@ -204,20 +326,49 @@ void MainWindow::onStartCapture()
         
         // 设置更新定时器间隔为 33ms (约30 FPS)，0 表示尽快执行
         m_updateTimer->setInterval(0);  // 0 = 尽快执行，不阻塞事件循环
+        qDebug() << "[MainWindow::onStartCapture] 定时器间隔设置为:" << m_updateTimer->interval() << "ms";
         m_updateTimer->start();
-        updateStatus("开始连续采集");
+        qDebug() << "[MainWindow::onStartCapture] 定时器已启动，isActive =" << m_updateTimer->isActive();
+        
+        if (sourceType == VideoSourceType::Camera)
+        {
+            updateStatus("开始连续采集");
+        }
+        else
+        {
+            updateStatus("开始播放视频");
+            qDebug() << "[MainWindow::onStartCapture] 状态更新为：开始播放视频";
+        }
     }
     else
     {
+        qDebug() << "[MainWindow::onStartCapture] 失败！";
         QMessageBox::critical(this, "错误", "启动采集失败");
         updateStatus("启动采集失败");
     }
+    
+    qDebug() << "[MainWindow::onStartCapture] ========== 函数结束 ==========";
 }
 void MainWindow::onStopCapture()
 {
     m_updateTimer->stop();
     
-    if (m_cameraController->stopCapture())
+    // 检查当前视频源类型
+    VideoSourceType sourceType = m_cameraController->getCurrentSourceType();
+    
+    bool success = false;
+    if (sourceType == VideoSourceType::Camera)
+    {
+        // 相机模式：调用相机API停止采集
+        success = m_cameraController->stopCapture();
+    }
+    else if (sourceType == VideoSourceType::VideoFile)
+    {
+        // 视频文件模式：只需停止定时器即可
+        success = true;
+    }
+    
+    if (success)
     {
         ui.startButton->setEnabled(true);
         ui.stopButton->setEnabled(false);
@@ -225,7 +376,14 @@ void MainWindow::onStopCapture()
         // 停止后重置窗口标题
         setWindowTitle("简单相机控制器 - FPS: 0.0");
         
-        updateStatus("停止采集");
+        if (sourceType == VideoSourceType::Camera)
+        {
+            updateStatus("停止采集");
+        }
+        else
+        {
+            updateStatus("停止播放");
+        }
     }
     else
     {
@@ -270,15 +428,42 @@ void MainWindow::onSaveImage()
 }
 void MainWindow::updateImage()
 {
+    static int frameCounter = 0;
+    frameCounter++;
+    
+    if (frameCounter == 1 || frameCounter % 30 == 0) {
+        qDebug() << "[MainWindow::updateImage] 定时器触发，帧计数:" << frameCounter;
+    }
+    
+    // ========== 轮询模式：主动从 YoloDetector 获取最新检测结果 ==========
+    // 直接从 YoloDetector 获取（绕过 CameraController）
+    auto latestDetections = m_cameraController->getYoloDetector()->getLatestResults();
+    if (!latestDetections.empty()) {
+        m_latestDetections = latestDetections;
+        
+        if (frameCounter % 10 == 0) {  // 每10帧打印一次
+            qDebug() << "[MainWindow::updateImage] 轮询到检测结果:" << m_latestDetections.size() << "个目标";
+        }
+    }
+    // =================================================
+    
     // 在连续采集模式下，主动获取一帧
     m_cameraController->grabFrame();
     
     if (m_cameraController->hasNewImage())
     {
+        if (frameCounter == 1 || frameCounter % 30 == 0) {
+            qDebug() << "[MainWindow::updateImage] 有新图像";
+        }
+        
         cv::Mat image = m_cameraController->getCurrentImage();
         m_cameraController->clearNewImageFlag();
         if (!image.empty())
         {
+            if (frameCounter == 1 || frameCounter % 30 == 0) {
+                qDebug() << "[MainWindow::updateImage] 图像有效，尺寸:" << image.cols << "x" << image.rows;
+            }
+            
             // 如果有检测结果，在图像上绘制检测框
             if (!m_latestDetections.empty())
             {

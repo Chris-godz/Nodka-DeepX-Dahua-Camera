@@ -34,8 +34,10 @@ private slots:
     void onStopCapture();
     void onSnapImage();
     void onSaveImage();
+    void onSwitchVideoSource();
     void updateImage();
-    void onDetectionsUpdated(std::vector<BoundingBox> detections);
+    // 改为无参数，从CameraController主动获取数据
+    void onDetectionsUpdated();
     
     // YOLO 控制槽函数
     void onLoadYoloModel();

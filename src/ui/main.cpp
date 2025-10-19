@@ -5,6 +5,10 @@
 #include <QDebug>
 #include <QDateTime>
 #include "MainWindow.h"
+#include "yolo/bbox.h"
+
+// 注册自定义类型以支持跨线程信号传递
+Q_DECLARE_METATYPE(std::vector<BoundingBox>)
 
 // 自定义消息处理器，将 qDebug 输出重定向到文件和控制台
 void customMessageHandler(QtMsgType type, const QMessageLogContext &context, const QString &msg)
@@ -46,6 +50,14 @@ void customMessageHandler(QtMsgType type, const QMessageLogContext &context, con
 int main(int argc, char *argv[])
 {
     QApplication app(argc, argv);
+    
+    // 注册自定义类型，使其可以在 Qt 的信号槽系统中跨线程传递
+    qRegisterMetaType<std::vector<BoundingBox>>("std::vector<BoundingBox>");
+    qDebug() << "[MAIN] ========================================";
+    qDebug() << "[MAIN] 已注册 std::vector<BoundingBox> 元类型";
+    qDebug() << "[MAIN] sizeof(BoundingBox) =" << sizeof(BoundingBox) << "bytes";
+    qDebug() << "[MAIN] 主线程 ID:" << QThread::currentThreadId();
+    qDebug() << "[MAIN] ========================================";
     
     // 安装自定义消息处理器
     qInstallMessageHandler(customMessageHandler);

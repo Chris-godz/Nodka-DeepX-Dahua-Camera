@@ -1,16 +1,23 @@
 #include "MainWindow.h"
 #include <QDebug>
+#include <QThread>
 
-// YOLO 检测结果回调
-void MainWindow::onDetectionsUpdated(std::vector<BoundingBox> detections)
+// YOLO 检测结果回调 - 无参数版本，主动获取数据
+void MainWindow::onDetectionsUpdated()
 {
     static int updateCount = 0;
     updateCount++;
     
-    m_latestDetections = detections;
+    qDebug() << "[UI] ========== 进入 onDetectionsUpdated #" << updateCount << " ==========";
+    qDebug() << "[UI] 当前线程 ID:" << QThread::currentThreadId();
     
-    qDebug() << "[UI] ========== 收到检测结果 #" << updateCount << " ==========";
+    // 从 CameraController 主动获取最新检测结果
+    auto detections = m_cameraController->getLatestDetections();
+    
     qDebug() << "[UI] 检测目标数量:" << detections.size();
+    qDebug() << "[UI] 开始复制到 m_latestDetections...";
+    m_latestDetections = detections;
+    qDebug() << "[UI] 复制完成 ✓";
     
     if (detections.size() > 0) {
         qDebug() << "[UI] 目标详情:";

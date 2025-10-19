@@ -4,8 +4,23 @@
 #include <QFileInfo>
 #include <QDir>
 #include <QFile>
-#include <dxrt/dxrt_api.h>  // 添加 DXRT API 头文件以获取 dxrt::Exception
-// #include <utils/common_util.hpp>  // 暂时注释掉版本检查功能
+#include <dxrt/dxrt_api.h>
+
+// 简单的版本比较函数（替代 utils/common_util.hpp）
+namespace dxapp {
+namespace common {
+    inline bool compareVersions(const char* version1, const char* version2) {
+        // 简化版本：假设 version1 >= version2 则返回 true
+        // 实际项目中应该用更完整的版本比较
+        std::string v1(version1), v2(version2);
+        return v1 >= v2;
+    }
+}
+}
+
+// ============================================================================
+// YoloDetector 实现
+// ============================================================================
 
 // 外部声明的 YOLO 参数配置
 extern YoloParam yolov5s_320, yolov5s_512, yolov5s_640, 
@@ -41,7 +56,10 @@ static const int g_yoloParamsCount = sizeof(g_yoloParamsPtr) / sizeof(g_yoloPara
 YoloDetector::YoloDetector(QObject* parent)
     : QObject(parent)
     , m_initialized(false)
+    , m_currentOriginalWidth(0)
+    , m_currentOriginalHeight(0)
 {
+    qDebug() << "[YOLO] YoloDetector 已创建";
 }
 
 YoloDetector::~YoloDetector()
@@ -226,11 +244,30 @@ bool YoloDetector::initializeModel(const QString& modelPath, int parameterIndex)
         m_preprocessedImage = cv::Mat(m_config.height, m_config.width, CV_8UC3);
         qDebug() << "[YOLO] 预处理图像缓冲区分配成功";
 
+        // 注册异步推理回调
+        qDebug() << "[YOLO] 注册异步推理回调...";
+        std::function<int(std::vector<std::shared_ptr<dxrt::Tensor>>, void*)> callback = 
+            [this](std::vector<std::shared_ptr<dxrt::Tensor>> outputs, void* arg) -> int
+            {
+                // 获取输出长度
+                int64_t outputLength = outputs.front()->shape()[0];
+                if (dxapp::common::compareVersions(DXRT_VERSION, "2.6.3")) {
+                    outputLength = outputs.front()->shape()[1];
+                }
+                
+                // 调用后处理
+                this->postProcessFromBuffer((void*)m_outputBuffer.data(), outputLength);
+                return 0;
+            };
+        m_inferenceEngine->RegisterCallBack(callback);
+        qDebug() << "[YOLO] 回调注册成功";
+
         m_initialized = true;
         qInfo() << "[YOLO] ========== 模型初始化成功 ==========";
         qInfo() << "[YOLO] 模型路径:" << modelPath;
         qInfo() << "[YOLO] 模型尺寸:" << m_config.width << "x" << m_config.height;
         qInfo() << "[YOLO] 类别数:" << m_config.numClasses;
+        qInfo() << "[YOLO] 使用异步推理模式";
 
         return true;
     }
@@ -401,30 +438,244 @@ std::vector<BoundingBox> YoloDetector::detectSync(const cv::Mat& image)
 bool YoloDetector::detectAsync(const cv::Mat& image)
 {
     if (!m_initialized) {
-        qWarning() << "模型未初始化";
+        qWarning() << "[YOLO ASYNC] 模型未初始化";
         return false;
     }
 
+    if (image.empty()) {
+        qWarning() << "[YOLO ASYNC] 输入图像为空";
+        return false;
+    }
+
+    static int asyncCallCount = 0;
+    asyncCallCount++;
+    
+    bool verboseLog = (asyncCallCount == 1 || asyncCallCount % 30 == 0);
+
     try {
-        // 预处理 - 创建可修改的副本
+        if (verboseLog) {
+            qDebug() << "[YOLO ASYNC] ========== 第" << asyncCallCount << "次异步调用 ==========";
+            qDebug() << "[YOLO ASYNC] 输入图像:" << image.cols << "x" << image.rows;
+        }
+        
+        // 保存原始图像尺寸（用于后处理时的坐标缩放）
+        {
+            QMutexLocker locker(&m_mutex);
+            m_currentOriginalWidth = image.cols;
+            m_currentOriginalHeight = image.rows;
+            if (verboseLog) {
+                qDebug() << "[YOLO ASYNC] 保存原始尺寸完成";
+            }
+        }
+        
+        // 预处理
+        if (verboseLog) {
+            qDebug() << "[YOLO ASYNC] 开始预处理...";
+        }
         cv::Mat imageCopy = image.clone();
         PreProc(imageCopy, m_preprocessedImage, true, true, 114);
+        if (verboseLog) {
+            qDebug() << "[YOLO ASYNC] 预处理完成:" << m_preprocessedImage.cols << "x" << m_preprocessedImage.rows;
+        }
         
-        // 异步推理
-        // 注意：这里需要确保缓冲区在回调之前保持有效
+        // 异步推理 - 参考 od.cpp 第139行
+        // RunAsync 会立即返回，推理完成后自动调用回调
+        if (verboseLog) {
+            qDebug() << "[YOLO ASYNC] 准备调用 RunAsync...";
+            qDebug() << "[YOLO ASYNC]   输入数据地址:" << (void*)m_preprocessedImage.data;
+            qDebug() << "[YOLO ASYNC]   this指针:" << (void*)this;
+            qDebug() << "[YOLO ASYNC]   输出缓冲区地址:" << (void*)m_outputBuffer.data();
+        }
+        
         m_inferenceEngine->RunAsync(
-            m_preprocessedImage.data, 
-            this,
+            m_preprocessedImage.data,
+            (void*)this,  // 传递 this 指针作为回调参数
             m_outputBuffer.data()
         );
-
+        
+        if (verboseLog) {
+            qDebug() << "[YOLO ASYNC] RunAsync 已返回（推理已提交到 NPU）✓";
+        }
+        
         return true;
     }
     catch (const std::exception& e) {
-        QString error = QString("异步推理启动失败: %1").arg(e.what());
-        qWarning() << error;
+        QString error = QString("异步推理失败: %1").arg(e.what());
+        qCritical() << "[YOLO ASYNC ERROR]" << error;
         emit errorOccurred(error);
         return false;
+    }
+}
+
+// 后处理回调实现（在 NPU 推理完成后由 DXRT 线程调用）
+void YoloDetector::postProcessFromBuffer(void* outputData, int outputLength)
+{
+    static int callbackCount = 0;
+    callbackCount++;
+    
+    bool verboseLog = (callbackCount == 1 || callbackCount % 30 == 0);
+    
+    try {
+        if (verboseLog) {
+            qDebug() << "[YOLO CALLBACK] ========== 第" << callbackCount << "次回调 ==========";
+            qDebug() << "[YOLO CALLBACK] 输出数据地址:" << outputData;
+            qDebug() << "[YOLO CALLBACK] 输出长度:" << outputLength;
+        }
+        
+        // 获取输出张量信息
+        if (verboseLog) {
+            qDebug() << "[YOLO CALLBACK] 获取输出张量信息...";
+        }
+        auto outputs = m_inferenceEngine->GetOutputs();
+        std::vector<std::vector<int64_t>> output_shapes;
+        for (size_t i = 0; i < outputs.size(); ++i) {
+            output_shapes.push_back(outputs[i].shape());
+        }
+        if (verboseLog) {
+            qDebug() << "[YOLO CALLBACK] 输出张量数量:" << outputs.size();
+        }
+        
+        dxrt::DataType dataType = m_inferenceEngine->outputs().front().type();
+        
+        // 调用 YOLO 后处理
+        if (verboseLog) {
+            qDebug() << "[YOLO CALLBACK] 开始 YOLO 后处理...";
+        }
+        auto results = m_yolo->PostProc(outputData, output_shapes, dataType, outputLength);
+        if (verboseLog) {
+            qDebug() << "[YOLO CALLBACK] 后处理完成，检测数量:" << results.size();
+        }
+        
+        // 坐标缩放 - 从模型输入尺寸映射回原始图像尺寸
+        if (!results.empty()) {
+            int origWidth, origHeight;
+            {
+                QMutexLocker locker(&m_mutex);
+                origWidth = m_currentOriginalWidth;
+                origHeight = m_currentOriginalHeight;
+            }
+            
+            if (verboseLog) {
+                qDebug() << "[YOLO CALLBACK] 坐标缩放: 从" << m_config.width << "x" << m_config.height
+                         << "到" << origWidth << "x" << origHeight;
+            }
+            
+            int npuWidth = m_config.width;
+            int npuHeight = m_config.height;
+            
+            // 计算缩放参数（与 PreProc 的 letterbox 对应）
+            float preprocRatio = std::min((float)npuWidth / origWidth, (float)npuHeight / origHeight);
+            int resizedWidth = (int)(origWidth * preprocRatio);
+            int resizedHeight = (int)(origHeight * preprocRatio);
+            float padWidth = (npuWidth - resizedWidth) / 2.0f;
+            float padHeight = (npuHeight - resizedHeight) / 2.0f;
+            float scaleRatio = 1.0f / preprocRatio;
+            
+            // 缩放坐标
+            for (auto& box : results) {
+                box.box[0] = (box.box[0] - padWidth) * scaleRatio;
+                box.box[1] = (box.box[1] - padHeight) * scaleRatio;
+                box.box[2] = (box.box[2] - padWidth) * scaleRatio;
+                box.box[3] = (box.box[3] - padHeight) * scaleRatio;
+            }
+            
+            if (verboseLog) {
+                qDebug() << "[YOLO CALLBACK] 坐标缩放完成";
+            }
+        }
+        
+        // 保存结果（线程安全）
+        {
+            QMutexLocker locker(&m_resultMutex);
+            m_latestResults = results;
+        }
+        
+        if (verboseLog) {
+            qDebug() << "[YOLO CALLBACK] 准备发射 detectionComplete 信号...";
+            qDebug() << "[YOLO CALLBACK] 检测结果向量大小:" << results.size();
+            qDebug() << "[YOLO CALLBACK] sizeof(BoundingBox):" << sizeof(BoundingBox);
+            qDebug() << "[YOLO CALLBACK] 预计传输数据量:" << (results.size() * sizeof(BoundingBox)) << "bytes";
+        }
+        
+        // ========== 轮询模式：不再发射信号 ==========
+        // 结果已经保存到 m_latestResults（带 mutex 保护）
+        // UI 定时器会通过 getLatestResults() 主动获取
+        // 不再使用 emit detectionComplete() 跨线程信号
+        qDebug() << "[YOLO CALLBACK #" << callbackCount << "] 结果已保存（轮询模式，不发射信号）, size=" << results.size();
+        
+        if (verboseLog) {
+            qDebug() << "[YOLO CALLBACK] 回调处理完成 ✓（轮询模式）";
+        }
+    }
+    catch (const std::exception& e) {
+        QString error = QString("后处理失败: %1").arg(e.what());
+        qCritical() << "[YOLO CALLBACK ERROR]" << error;
+        emit errorOccurred(error);
+    }
+}
+
+// 获取最新检测结果（线程安全）
+std::vector<BoundingBox> YoloDetector::getLatestResults()
+{
+    QMutexLocker locker(&m_resultMutex);
+    return m_latestResults;
+}
+
+std::vector<BoundingBox> YoloDetector::postProcess(
+    const uint8_t* outputData,
+    const std::vector<std::vector<int64_t>>& outputShapes,
+    dxrt::DataType dataType,
+    int originalWidth,
+    int originalHeight)
+{
+    qDebug() << "[PostProcess] 开始后处理";
+    qDebug() << "[PostProcess] 原始图像尺寸:" << originalWidth << "x" << originalHeight;
+    
+    // 调用 YOLO 后处理 (需要 void* 类型，强制转换去掉 const)
+    int outputLength = m_outputBuffer.size() / sizeof(float);
+    auto results = m_yolo->PostProc(const_cast<uint8_t*>(outputData), outputShapes, dataType, outputLength);
+    
+    qDebug() << "[PostProcess] YOLO后处理完成, 检测数:" << results.size();
+    
+    // 坐标缩放 - 从模型输入尺寸映射回原始图像尺寸
+    if (!results.empty()) {
+        scaleCoordinates(results, originalWidth, originalHeight, 
+                        m_config.width, m_config.height);
+        qDebug() << "[PostProcess] 坐标缩放完成";
+    }
+    
+    return results;
+}
+
+void YoloDetector::scaleCoordinates(std::vector<BoundingBox>& boxes,
+                                   int srcWidth, int srcHeight,
+                                   int npuWidth, int npuHeight)
+{
+    // 参考 dx_app-1.11.0/demos/object_detection/od.cpp GetScalingBBox
+    // 计算预处理时的缩放比例和padding
+    float preprocRatio = std::min((float)npuWidth / srcWidth, (float)npuHeight / srcHeight);
+    int resizedWidth = (int)(srcWidth * preprocRatio);
+    int resizedHeight = (int)(srcHeight * preprocRatio);
+    float padWidth = (npuWidth - resizedWidth) / 2.0f;
+    float padHeight = (npuHeight - resizedHeight) / 2.0f;
+    float scaleRatio = 1.0f / preprocRatio;
+    
+    qDebug() << "[ScaleCoords] 预处理比例:" << preprocRatio;
+    qDebug() << "[ScaleCoords] Padding: width=" << padWidth << ", height=" << padHeight;
+    qDebug() << "[ScaleCoords] 缩放比例:" << scaleRatio;
+    
+    for (auto& box : boxes) {
+        // 减去padding，然后缩放到原始图像尺寸
+        box.box[0] = (box.box[0] - padWidth) * scaleRatio;   // x1
+        box.box[1] = (box.box[1] - padHeight) * scaleRatio;  // y1
+        box.box[2] = (box.box[2] - padWidth) * scaleRatio;   // x2
+        box.box[3] = (box.box[3] - padHeight) * scaleRatio;  // y2
+        
+        // 限制在图像范围内
+        box.box[0] = std::max(0.0f, std::min((float)srcWidth, box.box[0]));
+        box.box[1] = std::max(0.0f, std::min((float)srcHeight, box.box[1]));
+        box.box[2] = std::max(0.0f, std::min((float)srcWidth, box.box[2]));
+        box.box[3] = std::max(0.0f, std::min((float)srcHeight, box.box[3]));
     }
 }
 
@@ -434,21 +685,55 @@ int YoloDetector::postProcessCallback(
 {
     auto* detector = static_cast<YoloDetector*>(arg);
     if (!detector) {
+        qCritical() << "[Callback] Detector指针为空";
         return -1;
     }
 
     try {
-        // 后处理
-        auto results = detector->m_yolo->PostProc(outputs);
+        qDebug() << "[Callback Thread] 推理完成，线程ID:" << QThread::currentThreadId();
         
-        // 发送信号
-        emit detector->detectionComplete(results);
+        // 收集输出形状信息
+        std::vector<std::vector<int64_t>> outputShapes;
+        for (const auto& tensor : outputs) {
+            outputShapes.push_back(tensor->shape());
+        }
+        
+        // 获取数据类型和原始图像尺寸（线程安全读取）
+        dxrt::DataType dataType = outputs.front()->type();
+        int originalWidth, originalHeight;
+        {
+            QMutexLocker locker(&detector->m_mutex);
+            originalWidth = detector->m_currentOriginalWidth;
+            originalHeight = detector->m_currentOriginalHeight;
+        }
+        
+        qDebug() << "[Callback Thread] 开始后处理, 原始尺寸:" << originalWidth << "x" << originalHeight;
+        
+        // 直接在回调线程中执行后处理（简化多线程处理）
+        auto results = detector->postProcess(
+            detector->m_outputBuffer.data(),
+            outputShapes,
+            dataType,
+            originalWidth,
+            originalHeight
+        );
+        
+        qDebug() << "[Callback Thread] 后处理完成, 检测到" << results.size() << "个目标";
+        
+        // 保存结果到成员变量（线程安全）
+        {
+            QMutexLocker locker(&detector->m_resultMutex);
+            detector->m_latestResults = results;
+        }
+        
+        // 发送空信号通知（不传递数据，避免QRingBuffer溢出）
+        emit detector->detectionComplete();
         
         return 0;
     }
     catch (const std::exception& e) {
-        QString error = QString("后处理失败: %1").arg(e.what());
-        qWarning() << error;
+        QString error = QString("回调处理失败: %1").arg(e.what());
+        qCritical() << "[Callback ERROR]" << error;
         emit detector->errorOccurred(error);
         return -1;
     }

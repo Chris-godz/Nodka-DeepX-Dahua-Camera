@@ -12,48 +12,67 @@ void DisplayBoundingBox(cv::Mat& frame,
                        float InputWidth, 
                        float InputHeight)
 {
+    // 注意：如果在 YoloDetector 中已经做了坐标缩放，这里就不需要再次缩放
+    // 这个函数主要用于当坐标还是模型输入尺寸时的转换
+    // 如果坐标已经是原始图像尺寸，可以直接绘制
+    
     std::map<std::string, int> numObjects;
     float x1, y1, x2, y2, w_pad = 0, h_pad = 0;
     float w = (float)frame.cols;  // Target Frame Width
     float h = (float)frame.rows;  // Target Frame Height
-    float r = std::min(OriginWidth/w, OriginHeight/h);
+    float r = 1.0f;  // 默认不缩放（假设坐标已经转换）
     bool reformatting = false;
     float reformatting_ratio_width = 1.f, reformatting_ratio_height = 1.f;
     int txtBaseline = 0;
 
-    if (InputWidth > 0) 
-    {
-        if (w/h == InputWidth/InputHeight) 
-        {
-            reformatting = false;
-        } 
-        else
-        {
-            reformatting = true;
-            reformatting_ratio_width = w/InputWidth;
-            reformatting_ratio_height = h/InputHeight;
-        }
-    }
+    // 如果提供了 OriginWidth 和 OriginHeight，说明需要进行坐标转换
+    bool needsScaling = (OriginWidth > 0 && OriginHeight > 0 && 
+                        (OriginWidth != w || OriginHeight != h));
 
-    if (reformatting) 
-    {
-        r = std::min(OriginWidth/InputWidth, OriginHeight/InputHeight);
-        w_pad = ImageCenterAligned ? (OriginWidth - InputWidth*r)/2. : 0;
-        h_pad = ImageCenterAligned ? (OriginHeight - InputHeight*r)/2. : 0;
-    } 
-    else 
-    {
-        r = std::min(OriginWidth/w, OriginHeight/h);
-        w_pad = ImageCenterAligned ? (OriginWidth - w*r)/2. : 0;
-        h_pad = ImageCenterAligned ? (OriginHeight - h*r)/2. : 0;
+    if (needsScaling) {
+        if (InputWidth > 0) 
+        {
+            if (w/h == InputWidth/InputHeight) 
+            {
+                reformatting = false;
+            } 
+            else
+            {
+                reformatting = true;
+                reformatting_ratio_width = w/InputWidth;
+                reformatting_ratio_height = h/InputHeight;
+            }
+        }
+
+        if (reformatting) 
+        {
+            r = std::min(OriginWidth/InputWidth, OriginHeight/InputHeight);
+            w_pad = ImageCenterAligned ? (OriginWidth - InputWidth*r)/2. : 0;
+            h_pad = ImageCenterAligned ? (OriginHeight - InputHeight*r)/2. : 0;
+        } 
+        else 
+        {
+            r = std::min(OriginWidth/w, OriginHeight/h);
+            w_pad = ImageCenterAligned ? (OriginWidth - w*r)/2. : 0;
+            h_pad = ImageCenterAligned ? (OriginHeight - h*r)/2. : 0;
+        }
     }
 
     for (auto& bbox : result) 
     {
-        x1 = (bbox.box[0] - w_pad)/r;
-        x2 = (bbox.box[2] - w_pad)/r;
-        y1 = (bbox.box[1] - h_pad)/r;
-        y2 = (bbox.box[3] - h_pad)/r;
+        if (needsScaling) {
+            // 需要坐标转换
+            x1 = (bbox.box[0] - w_pad)/r;
+            x2 = (bbox.box[2] - w_pad)/r;
+            y1 = (bbox.box[1] - h_pad)/r;
+            y2 = (bbox.box[3] - h_pad)/r;
+        } else {
+            // 坐标已经是目标尺寸，直接使用
+            x1 = bbox.box[0];
+            y1 = bbox.box[1];
+            x2 = bbox.box[2];
+            y2 = bbox.box[3];
+        }
         
         if (reformatting) {
             x1 *= reformatting_ratio_width;

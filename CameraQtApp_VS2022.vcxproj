@@ -19,6 +19,11 @@
   <PropertyGroup>
     <QtPath>C:\Qt\6.7.3\msvc2022_64</QtPath>
   </PropertyGroup>
+  <!-- DXRT SDK Path Configuration -->
+  <PropertyGroup>
+    <DxrtPath Condition="'$(DXRT_DIR)' != ''">$(DXRT_DIR)</DxrtPath>
+    <DxrtPath Condition="'$(DXRT_DIR)' == ''">C:\DevTools\DEEPX\DXNN\dxrt_v2.9.5</DxrtPath>
+  </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
@@ -41,8 +46,8 @@
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <Optimization>Disabled</Optimization>
       <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
-      <AdditionalIncludeDirectories>$(MV_GENICAM_64)/../../Development/Include/IMV;$(QtPath)\include;$(QtPath)\include\QtCore;$(QtPath)\include\QtGui;$(QtPath)\include\QtWidgets;..\Sample_OpenCV_VS2015\Include;..\Sample_OpenCV_VS2015\Include\opencv2;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;QT_CORE_LIB;QT_GUI_LIB;QT_WIDGETS_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(IntDir);include;include\ui;include\yolo;include\utils;dependencies\opencv\include;dependencies\dxrt\include;dependencies\camera_sdk\include;$(QtPath)\include;$(QtPath)\include\QtCore;$(QtPath)\include\QtGui;$(QtPath)\include\QtWidgets;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>NOMINMAX;_CRT_SECURE_NO_WARNINGS;QT_CORE_LIB;QT_GUI_LIB;QT_WIDGETS_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <ConformanceMode>true</ConformanceMode>
       <AdditionalOptions>/Zc:__cplusplus /permissive- /source-charset:utf-8 /execution-charset:utf-8 %(AdditionalOptions)</AdditionalOptions>
@@ -50,12 +55,15 @@
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>$(MV_GENICAM_64)/../../Development/Lib/x64;$(QtPath)\lib;..\Sample_OpenCV_VS2015\Depends;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>Qt6Cored.lib;Qt6Guid.lib;Qt6Widgetsd.lib;Qt6EntryPointd.lib;opencv_world490d.lib;MVSDKmd.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>dependencies\opencv\lib;dependencies\dxrt\lib;dependencies\camera_sdk\lib;$(QtPath)\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>Qt6Cored.lib;Qt6Guid.lib;Qt6Widgetsd.lib;Qt6EntryPointd.lib;opencv_world490d.lib;MVSDKmd.lib;dxrtdbg.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
-      <Command>copy /Y "..\Sample_OpenCV_VS2015\Bin\opencv_world490d.dll" "$(OutDir)" 2&gt;nul
-copy /Y "$(ProjectDir)Nodka-Deepx.png" "$(OutDir)" 2&gt;nul
+      <Command>copy /Y "dependencies\opencv\bin\opencv_world490d.dll" "$(OutDir)" 2&gt;nul
+copy /Y "dependencies\dxrt\bin\dxrt.dll" "$(OutDir)" 2&gt;nul
+copy /Y "dependencies\dxrt\bin\dxrtdbg.dll" "$(OutDir)" 2&gt;nul
+copy /Y "dependencies\camera_sdk\bin\*.dll" "$(OutDir)" 2&gt;nul
+copy /Y "resources\icons\Nodka-Deepx.png" "$(OutDir)" 2&gt;nul
 exit 0</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
@@ -66,8 +74,8 @@ exit 0</Command>
       <DebugInformationFormat>None</DebugInformationFormat>
       <Optimization>MaxSpeed</Optimization>
       <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
-      <AdditionalIncludeDirectories>$(MV_GENICAM_64)/../../Development/Include/IMV;$(QtPath)\include;$(QtPath)\include\QtCore;$(QtPath)\include\QtGui;$(QtPath)\include\QtWidgets;..\Sample_OpenCV_VS2015\Include;..\Sample_OpenCV_VS2015\Include\opencv2;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;QT_CORE_LIB;QT_GUI_LIB;QT_WIDGETS_LIB;QT_NO_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(IntDir);include;include\ui;include\yolo;include\utils;dependencies\opencv\include;dependencies\dxrt\include;dependencies\camera_sdk\include;$(QtPath)\include;$(QtPath)\include\QtCore;$(QtPath)\include\QtGui;$(QtPath)\include\QtWidgets;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>NOMINMAX;_CRT_SECURE_NO_WARNINGS;QT_CORE_LIB;QT_GUI_LIB;QT_WIDGETS_LIB;QT_NO_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <ConformanceMode>true</ConformanceMode>
       <AdditionalOptions>/Zc:__cplusplus /permissive- /source-charset:utf-8 /execution-charset:utf-8 %(AdditionalOptions)</AdditionalOptions>
@@ -75,56 +83,80 @@ exit 0</Command>
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>false</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>$(MV_GENICAM_64)/../../Development/Lib/x64;$(QtPath)\lib;..\Sample_OpenCV_VS2015\Depends;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>Qt6Core.lib;Qt6Gui.lib;Qt6Widgets.lib;Qt6EntryPoint.lib;opencv_world490.lib;MVSDKmd.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>dependencies\opencv\lib;dependencies\dxrt\lib;dependencies\camera_sdk\lib;$(QtPath)\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>Qt6Core.lib;Qt6Gui.lib;Qt6Widgets.lib;Qt6EntryPoint.lib;opencv_world490.lib;MVSDKmd.lib;dxrt.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
-      <Command>copy /Y "..\Sample_OpenCV_VS2015\Bin\opencv_world490.dll" "$(OutDir)" 2&gt;nul
-copy /Y "$(ProjectDir)Nodka-Deepx.png" "$(OutDir)" 2&gt;nul
+      <Command>copy /Y "dependencies\opencv\bin\opencv_world490.dll" "$(OutDir)" 2&gt;nul
+copy /Y "dependencies\dxrt\bin\dxrt.dll" "$(OutDir)" 2&gt;nul
+copy /Y "dependencies\camera_sdk\bin\*.dll" "$(OutDir)" 2&gt;nul
+copy /Y "resources\icons\Nodka-Deepx.png" "$(OutDir)" 2&gt;nul
 exit 0</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="main.cpp" />
-    <ClCompile Include="MainWindow.cpp" />
-    <ClCompile Include="CameraController.cpp" />
-    <ClCompile Include="moc_MainWindow.cpp" />
-    <ClCompile Include="moc_CameraController.cpp" />
-    <ClCompile Include="qrc_main.cpp" />
+    <ClCompile Include="src\ui\main.cpp" />
+    <ClCompile Include="src\ui\MainWindow.cpp" />
+    <ClCompile Include="src\ui\MainWindow_YoloExtensions.cpp" />
+    <ClCompile Include="src\ui\CameraController.cpp" />
+    <ClCompile Include="src\ui\YoloDetector.cpp" />
+    <ClCompile Include="src\yolo\bbox.cpp" />
+    <ClCompile Include="src\yolo\display.cpp" />
+    <ClCompile Include="src\yolo\image.cpp" />
+    <ClCompile Include="src\yolo\nms.cpp" />
+    <ClCompile Include="src\yolo\yolo.cpp" />
+    <ClCompile Include="src\yolo\yolo_cfg.cpp" />
+    <ClCompile Include="$(IntDir)moc_MainWindow.cpp" />
+    <ClCompile Include="$(IntDir)moc_CameraController.cpp" />
+    <ClCompile Include="$(IntDir)moc_YoloDetector.cpp" />
+    <ClCompile Include="$(IntDir)qrc_main.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="ui_MainWindow.h" />
+    <ClInclude Include="$(IntDir)ui_MainWindow.h" />
+    <ClInclude Include="include\yolo\bbox.h" />
+    <ClInclude Include="include\yolo\display.h" />
+    <ClInclude Include="include\yolo\image.h" />
+    <ClInclude Include="include\yolo\nms.h" />
+    <ClInclude Include="include\yolo\yolo.h" />
   </ItemGroup>
   <ItemGroup>
-    <CustomBuild Include="MainWindow.h">
-      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(QtPath)\bin\moc.exe %(FullPath) -o moc_%(Filename).cpp</Command>
-      <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(QtPath)\bin\moc.exe %(FullPath) -o moc_%(Filename).cpp</Command>
-      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">moc_%(Filename).cpp</Outputs>
-      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">moc_%(Filename).cpp</Outputs>
+    <CustomBuild Include="include\ui\MainWindow.h">
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(QtPath)\bin\moc.exe %(FullPath) -o $(IntDir)moc_%(Filename).cpp</Command>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(QtPath)\bin\moc.exe %(FullPath) -o $(IntDir)moc_%(Filename).cpp</Command>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(IntDir)moc_%(Filename).cpp</Outputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(IntDir)moc_%(Filename).cpp</Outputs>
       <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(QtPath)\bin\moc.exe;%(FullPath)</AdditionalInputs>
       <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(QtPath)\bin\moc.exe;%(FullPath)</AdditionalInputs>
     </CustomBuild>
-    <CustomBuild Include="CameraController.h">
-      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(QtPath)\bin\moc.exe %(FullPath) -o moc_%(Filename).cpp</Command>
-      <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(QtPath)\bin\moc.exe %(FullPath) -o moc_%(Filename).cpp</Command>
-      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">moc_%(Filename).cpp</Outputs>
-      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">moc_%(Filename).cpp</Outputs>
+    <CustomBuild Include="include\ui\CameraController.h">
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(QtPath)\bin\moc.exe %(FullPath) -o $(IntDir)moc_%(Filename).cpp</Command>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(QtPath)\bin\moc.exe %(FullPath) -o $(IntDir)moc_%(Filename).cpp</Command>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(IntDir)moc_%(Filename).cpp</Outputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(IntDir)moc_%(Filename).cpp</Outputs>
       <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(QtPath)\bin\moc.exe;%(FullPath)</AdditionalInputs>
       <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(QtPath)\bin\moc.exe;%(FullPath)</AdditionalInputs>
     </CustomBuild>
-    <CustomBuild Include="MainWindow.ui">
-      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(QtPath)\bin\uic.exe %(FullPath) -o ui_%(Filename).h</Command>
-      <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(QtPath)\bin\uic.exe %(FullPath) -o ui_%(Filename).h</Command>
-      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">ui_%(Filename).h</Outputs>
-      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">ui_%(Filename).h</Outputs>
+    <CustomBuild Include="include\ui\YoloDetector.h">
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(QtPath)\bin\moc.exe %(FullPath) -o $(IntDir)moc_%(Filename).cpp</Command>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(QtPath)\bin\moc.exe %(FullPath) -o $(IntDir)moc_%(Filename).cpp</Command>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(IntDir)moc_%(Filename).cpp</Outputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(IntDir)moc_%(Filename).cpp</Outputs>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(QtPath)\bin\moc.exe;%(FullPath)</AdditionalInputs>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(QtPath)\bin\moc.exe;%(FullPath)</AdditionalInputs>
+    </CustomBuild>
+    <CustomBuild Include="resources\ui\MainWindow.ui">
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(QtPath)\bin\uic.exe %(FullPath) -o $(IntDir)ui_%(Filename).h</Command>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(QtPath)\bin\uic.exe %(FullPath) -o $(IntDir)ui_%(Filename).h</Command>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(IntDir)ui_%(Filename).h</Outputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(IntDir)ui_%(Filename).h</Outputs>
       <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(QtPath)\bin\uic.exe;%(FullPath)</AdditionalInputs>
       <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(QtPath)\bin\uic.exe;%(FullPath)</AdditionalInputs>
     </CustomBuild>
-    <CustomBuild Include="main.qrc">
-      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(QtPath)\bin\rcc.exe %(FullPath) -o qrc_%(Filename).cpp</Command>
-      <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(QtPath)\bin\rcc.exe %(FullPath) -o qrc_%(Filename).cpp</Command>
-      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">qrc_%(Filename).cpp</Outputs>
-      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">qrc_%(Filename).cpp</Outputs>
+    <CustomBuild Include="resources\main.qrc">
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(QtPath)\bin\rcc.exe %(FullPath) -o $(IntDir)qrc_%(Filename).cpp</Command>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(QtPath)\bin\rcc.exe %(FullPath) -o $(IntDir)qrc_%(Filename).cpp</Command>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(IntDir)qrc_%(Filename).cpp</Outputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(IntDir)qrc_%(Filename).cpp</Outputs>
       <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(QtPath)\bin\rcc.exe;%(FullPath)</AdditionalInputs>
       <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(QtPath)\bin\rcc.exe;%(FullPath)</AdditionalInputs>
     </CustomBuild>
